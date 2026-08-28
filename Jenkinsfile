@@ -15,7 +15,7 @@ pipeline {
   }
 
   environment {
-    PATH                  = '/Users/godwill/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+    PATH                  = "${env.HOME}/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     AWS_DEFAULT_REGION    = 'us-east-1'
     AWS_REGION            = 'us-east-1'
     AWS_ACCESS_KEY_ID     = credentials('aws-academy-access-key-id')
