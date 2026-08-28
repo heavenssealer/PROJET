@@ -131,6 +131,11 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "512"
   execution_role_arn       = local.lab_role_arn
 
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
   container_definitions = jsonencode([{
     name      = "app"
     image     = local.image_uri

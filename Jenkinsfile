@@ -106,6 +106,9 @@ pipeline {
             kubectl --context minikube -n "$NAMESPACE" get deployment,pods,service,ingress,hpa
             aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME"
             aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].{desired:desiredCount,running:runningCount,status:status}'
+            DESIRED="$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].desiredCount' --output text)"
+            RUNNING="$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].runningCount' --output text)"
+            test "$RUNNING" = "$DESIRED"
           '''
         }
       }
