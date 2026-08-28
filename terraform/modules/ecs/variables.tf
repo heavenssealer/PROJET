@@ -22,3 +22,13 @@ variable "application_source" {
   description = "Chemin vers le code de l'application"
   type        = string
 }
+
+variable "allowed_cidr" {
+  description = "Adresse IP autorisee a contacter ECS"
+  type        = string
+}
+
+variable "desired_count" {
+  description = "Nombre minimal de taches ECS"
+  type        = number
+}

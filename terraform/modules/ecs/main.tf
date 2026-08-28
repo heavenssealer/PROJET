@@ -53,8 +53,7 @@ resource "terraform_data" "app_image" {
   provisioner "local-exec" {
     command = <<-EOT
       set -eu
-      aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-
-      stdin "$ECR_REGISTRY"
+      aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
       docker build --pull --tag "$LOCAL_IMAGE" --tag "$ECR_IMAGE" "$APP_SOURCE"
       docker push "$ECR_IMAGE"
     EOT
@@ -69,4 +68,150 @@ resource "terraform_data" "app_image" {
   }
 
   depends_on = [aws_ecr_repository.app]
+}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/${var.project_name}"
+  retention_in_days = 7
+}
+
+resource "aws_ecs_cluster" "this" {
+  name = "${var.project_name}-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+}
+
+resource "aws_security_group" "ecs" {
+  name        = "${var.project_name}-ecs"
+  description = "Acces HTTP limite au poste de demonstration"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description = "Acces a l application"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_cidr]
+  }
+
+  egress {
+    description = "Acces sortant vers ECR et CloudWatch"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+locals {
+  lab_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
+}
+
+resource "aws_ecs_task_definition" "app" {
+  family                   = "${var.project_name}-task"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = local.lab_role_arn
+
+  container_definitions = jsonencode([{
+    name      = "app"
+    image     = local.image_uri
+    essential = true
+    portMappings = [{
+      containerPort = 8080
+      hostPort      = 8080
+      protocol      = "tcp"
+    }]
+    environment = [
+      { name = "APP_VERSION", value = var.image_tag },
+      { name = "PLATFORM", value = "Amazon ECS Fargate" }
+    ]
+    healthCheck = {
+      command     = ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 10
+    }
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.app.name
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "app"
+      }
+    }
+  }])
+
+  depends_on = [terraform_data.app_image]
+}
+
+resource "aws_ecs_service" "app" {
+  name            = "${var.project_name}-service"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = var.desired_count
+  launch_type     = "FARGATE"
+
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  network_configuration {
+    subnets          = data.aws_subnets.default.ids
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
+  }
+
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+}
+
+resource "aws_appautoscaling_target" "ecs" {
+  max_capacity       = 4
+  min_capacity       = var.desired_count
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.app.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "cpu" {
+  name               = "${var.project_name}-cpu-target"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.ecs.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = 60
+    scale_in_cooldown  = 120
+    scale_out_cooldown = 60
+
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
 }

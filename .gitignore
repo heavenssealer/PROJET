@@ -6,6 +6,7 @@ PROJET_Orchestration_automatisee_globale.docx 1.pdf
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 terraform.tfvars
 *.auto.tfvars
 crash.log

@@ -1,0 +1,7 @@
+image_tag    = "v1"
+allowed_cidr = "203.0.113.10/32"
+
+# Valeurs facultatives
+# ecs_desired_count   = 2
+# kubernetes_replicas = 2
+# kubernetes_context  = "minikube"

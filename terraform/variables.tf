@@ -35,3 +35,37 @@ variable "allowed_cidr" {
     error_message = "L'adresse doit etre fournie au format x.x.x.x/32."
   }
 }
+
+variable "kubeconfig_path" {
+  description = "Chemin vers le kubeconfig"
+  type        = string
+  default     = "~/.kube/config"
+}
+
+variable "kubernetes_context" {
+  description = "Contexte et profil Minikube"
+  type        = string
+  default     = "minikube"
+}
+
+variable "ecs_desired_count" {
+  description = "Nombre minimal de taches ECS"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.ecs_desired_count >= 2
+    error_message = "Au moins deux taches ECS sont necessaires."
+  }
+}
+
+variable "kubernetes_replicas" {
+  description = "Nombre minimal de pods Kubernetes"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.kubernetes_replicas >= 2
+    error_message = "Au moins deux pods Kubernetes sont necessaires."
+  }
+}
