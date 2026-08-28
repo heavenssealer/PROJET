@@ -1,0 +1,54 @@
+  flowchart LR
+      User[Etudiant] --> Git[Depot Git]
+      Git --> Jenkins[Jenkins]
+
+      subgraph Pipeline[Pipeline commun]
+          Validate[Terraform validate]
+          Plan[Terraform plan]
+          Approval{Approbation humaine}
+          Apply[Terraform apply]
+
+          Validate --> Plan
+          Plan --> Approval
+          Approval --> Apply
+      end
+
+      Jenkins --> Validate
+
+      subgraph AWS[AWS Academy - us-east-1]
+          ECR[Amazon ECR]
+          Cluster[Cluster ECS]
+          ServiceECS[Service Fargate]
+          Tasks[Deux taches minimum]
+          SG[Security Group]
+          Logs[CloudWatch Logs]
+
+          ECR --> Tasks
+          Cluster --> ServiceECS
+          ServiceECS --> Tasks
+          SG --> Tasks
+          Tasks --> Logs
+      end
+
+      subgraph K8S[Kubernetes - Minikube]
+          Deployment[Deployment]
+          Pods[Deux pods minimum]
+          ServiceK8S[Service]
+          Ingress[Ingress]
+          HPA[Horizontal Pod Autoscaler]
+          Security[NetworkPolicy et politique de tags]
+
+          Deployment --> Pods
+          HPA --> Deployment
+          Pods --> ServiceK8S
+          ServiceK8S --> Ingress
+          Security --> Pods
+      end
+
+      Apply --> ECR
+      Apply --> Cluster
+      Apply --> Deployment
+
+      Image[Application Docker avec tag immuable]
+      Image --> ECR
+      Image --> Deployment
