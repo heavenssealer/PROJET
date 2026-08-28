@@ -18,7 +18,7 @@ Jenkinsfile
 - Docker
 - AWS CLI v2
 - Minikube et kubectl
-- Jenkins avec les plugins Pipeline, Git, Credentials Binding et AnsiColor
+- Jenkins avec les plugins Pipeline, Git et Credentials Binding
 
 Demarrer le cluster local :
 

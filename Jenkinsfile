@@ -3,8 +3,6 @@ pipeline {
 
   options {
     disableConcurrentBuilds()
-    timestamps()
-    ansiColor('xterm')
   }
 
   parameters {
